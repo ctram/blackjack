@@ -32,9 +32,10 @@ x 4. Use multiple decks to prevent against card counting players.
 =end
 
 ## START - Methods #############################################################
+require 'pry'
 
-def player_busts?(hand)
-  if sum_cards(hand) > 21
+def player_busts?(hand, cards_n_values, player, initial_deal_bool)
+  if sum_cards(hand, cards_n_values, player, initial_deal_bool) > 21
     return true
   else
     return false
@@ -42,9 +43,9 @@ def player_busts?(hand)
 end
 
 # Determine which player is the winner -- returns users_name, "push", or "Dealer"
-def who_is_winner?(users_name, users_hand, dealers_hand)
-  users_sum = sum_cards(users_hand)
-  dealers_sum = sum_cards(dealers_hand)
+def who_is_winner?(users_name, users_hand, dealers_hand, cards_n_values, initial_deal_bool)
+  users_sum = sum_cards(users_hand, cards_n_values, users_name, initial_deal_bool)
+  dealers_sum = sum_cards(dealers_hand, cards_n_values, "Dealer", initial_deal_bool)
 
   if users_sum > dealers_sum
     # User wins
@@ -60,33 +61,51 @@ def who_is_winner?(users_name, users_hand, dealers_hand)
 end
 
 # Return sum fixnum
-def sum_cards(hand, cards_n_values)
+def sum_cards(hand, cards_n_values, player, initial_deal_bool)
   # Ace card is both 1 and 11
   sum = 0
   num_of_aces = 0
 
-  hand.each_with_index do |card, i|
-    if cards_n_values[card] == 11
+  if player == "Dealer" and initial_deal_bool == true
+    # Only sum the Dealer's showing card
+    card = hand[0]
+    card = card.split("_")[1]
+
+    if card == 11
       num_of_aces += 1
     end
 
     sum += cards_n_values[card]
+
+  else
+    # User's hand sum calculation
+    hand.each_with_index do |card, i|
+      card = card.split("_")[1]           # card is string with suit and number. Remove suit and only use the number.
+      if cards_n_values[card] == 11
+        num_of_aces += 1
+      end
+
+      #binding.pry
+      sum += cards_n_values[card]
+    end
   end
 
   while sum > 21 and num_of_aces > 0
     sum = sum - 11 + 1
+    num_of_aces -= 1
   end
 
   sum
 end
 
-# Method to deal card to player, returns new hand and deck_final
+# Method to deal card to player,
+# returns new hand and deck_final
 def deal_a_card(players_hand, deck_final)
     players_hand << deck_final.pop
     return players_hand, deck_final
 end
 
-def display_players_hand(player, players_hand, initial_deal_bool)
+def display_players_hand(player, players_hand, initial_deal_bool, cards_n_values)
   puts "#{player}'s cards: \n"
 
   # If player is dealer and this is the initial deal, do NOT show the second card.
@@ -105,7 +124,8 @@ def display_players_hand(player, players_hand, initial_deal_bool)
   end
 
   puts
-
+  puts "Sum of #{player}'s hand: " + sum_cards(players_hand, cards_n_values, player, initial_deal_bool).to_s
+  puts
 end
 ############################################################## END - Methods ###
 
@@ -159,7 +179,6 @@ end until User wants to quit: exit command
 ## START - Program ###########################################################
 user_wants_to_continue = true
 
-# TODO: make numbers a hash that holds values of fixnum so that you can later sum the total of a hand -- will need to redo code from the beginning
 suits = %w(Diamond Spade Club Heart)
 
 values = [11,2,3,4,5,6,7,8,9,10,10,10,10]
@@ -190,11 +209,13 @@ deck_final = []
     end
 end
 
+system 'clear'
 puts "Welcome to Blackjack!"
 puts "What's your name?"
 print ">> "
 users_name = gets.chomp.capitalize
 puts
+system 'clear'
 puts "Alright, #{users_name}, let's play some Blackjack...\n\n"
 
 begin
@@ -211,10 +232,9 @@ begin
 
   begin
     # Display DEALER's cards
-    # TODO: Display sum of each player's hand
-    display_players_hand("Dealer", dealers_hand, true)
+    display_players_hand("Dealer", dealers_hand, true, cards_n_values)
     puts
-    display_players_hand(users_name, users_hand, false)
+    display_players_hand(users_name, users_hand, false, cards_n_values)
     puts
 
     user_stays = false
@@ -232,25 +252,64 @@ begin
       user_stays = true
     else
       users_hand, deck_final = deal_a_card(users_hand, deck_final)
+      system 'clear'
     end
 
-    # Clear screen
-    system 'clear'
+    if player_busts?(users_hand, cards_n_values, users_name, false) == true
+      puts "Sorry, #{users_name}, you bust."
+      user_busts = true
+    end
 
 
   end until user_stays == true or user_busts == true
 
-  gets.chomp
 
   # Dealer's section
-  begin
-    dealer_stays = False
-    dealer_busts = False
+  if user_busts == false
+    system 'clear'
+    begin
+      dealer_stays = false
+      dealer_busts = false
 
-    # TODO: Have Dealer flip over previously facedown'd card and begin hitting or staying.
-    # TODO: Dealer will hit unti he reaches at least 17
+      while sum_cards(dealers_hand, cards_n_values, "Dealer", false) < 17
+        dealers_hand, deck_final = deal_a_card(dealers_hand, deck_final)
+        display_players_hand("Dealer", dealers_hand, false, cards_n_values)
+        display_players_hand(users_name, users_hand, false, cards_n_values)
+      end
 
-  end until dealer_stays == true or dealer_busts == true
+      system 'clear'
+
+      display_players_hand("Dealer", dealers_hand, false, cards_n_values)
+      display_players_hand(users_name, users_hand, false, cards_n_values)
+
+      if player_busts?(dealers_hand, cards_n_values, "Dealer", false) == true
+        puts "The Dealer busts, #{users_name} wins!"
+        dealer_busts = true
+      else
+        # Comparison to see who wins
+        dealers_final_hand_sum = sum_cards(dealers_hand, cards_n_values, "Dealer", false)
+        users_final_hand_sum = sum_cards(users_hand, cards_n_values, users_name, false)
+
+        if dealers_final_hand_sum > users_final_hand_sum
+          puts " Dealer wins!"
+        elsif dealers_final_hand_sum == users_final_hand_sum
+          puts "It's a push. No winner."
+        elsif dealers_final_hand_sum < users_final_hand_sum
+          puts "You win, #{users_name}!"
+        end
+        dealer_busts = true
+      end
+
+    end until dealer_stays == true or dealer_busts == true or push == true
+  end
+
+  puts "Hit enter to play again or \"q\" to quit."
+
+  if gets.chomp == "q"
+    exit
+  end
+
+  system 'clear'
 
 end until user_wants_to_continue == false
 
