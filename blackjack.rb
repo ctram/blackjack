@@ -115,7 +115,7 @@ def display_both_hands(users_name, dealers_hand, users_hand, initial_deal_bool, 
   return nil
 end
 
-## Setup variables ######################################################
+## Setup data/decks ######################################################
 user_wants_to_continue = true
 
 suits = %w(Diamond Spade Club Heart)
